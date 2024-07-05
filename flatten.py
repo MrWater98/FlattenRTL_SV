@@ -85,9 +85,80 @@ class InstModuleVisitor(SystemVerilogParserVisitor):
             self.stop = ctx.stop.stop
             self.inst_module_node = ctx
 
-              
-
+class RenameModuleVisitor(SystemVerilogParserVisitor):
+    def __init__(self,cur_prefixs_index,cur_prefixs,cur_module_identifier):
+        self.inst_module_node = None
+        self.inst_module_design = None
+        self.start = None
+        self.stop = None
+        self.indent = 2
+        self.cur_prefixs_index = cur_prefixs_index
+        self.is_no_port_parameter = False
+        self.port_parameter_flag = False
+        self.cur_prefixs =cur_prefixs
+        self.cur_module_identifier = cur_module_identifier
+    
+    def is_parents_function_declaration(self,ctx):
+        if ctx is None:
+            return False
+        if not isinstance(ctx, SystemVerilogParser.Function_declarationContext):
+            return self.is_parents_function_declaration(ctx.parentCtx)
+        else:
+            return True
         
+        "This function is used to traverse the tree and change the name of the instance"
+    
+    def _traverse_children(self,ctx):
+        if isinstance(ctx,TerminalNodeImpl):
+            if ctx.symbol.text == "?":
+                ctx.symbol.text = "?"
+        else:
+            for child in ctx.getChildren():
+                if isinstance(child,SystemVerilogParser.Simple_identifierContext):
+                    if isinstance(
+                        child.parentCtx.parentCtx,
+                        SystemVerilogParser.Module_identifierContext,
+                    ):
+                        pass
+                    elif isinstance(
+                        child.parentCtx.parentCtx,
+                        SystemVerilogParser.Port_identifierContext,
+                    ):
+                        if self.is_parents_function_declaration(child):
+                            child.start.text = (
+                                ""
+                                + self.cur_prefixs[self.cur_prefixs_index]
+                                + "_"
+                                + child.start.text
+                                + ""
+                            )
+                        else:
+                            pass
+                    elif isinstance(
+                        child.parentCtx.parentCtx,
+                        SystemVerilogParser.Param_assignmentContext,
+                    ):
+                        pass
+                    else:
+                        child.start.text = (
+                            ""
+                            + self.cur_prefixs[self.cur_prefixs_index]
+                            + "_"
+                            +child.start.text
+                            + ""
+                        )
+                self._traverse_children(child)
+                            
+                            
+                            
+    
+    def visitModule_declaration(self,ctx:SystemVerilogParser.Module_declarationContext):
+        module_name = ctx.module_header().module_identifier().getText()
+        if module_name == self.cur_module_identifier:
+            self.start = ctx.start.start
+            self.stop = ctx.stop.stop
+            self.inst_module_node = ctx 
+            self._traverse_children(self.inst_module_node)    
                     
 
             
@@ -120,7 +191,64 @@ def pyflattenverilog(design: str, top_module: str):
     visitor.visit(tree)
     inst_module_design = design[visitor.start : visitor.stop + 1]
     
+    inst_module_design_tree = []
+    inst_module_nodes = []
+    no_port_parameter = False
+    for k in range(0,len(cur_prefixs)):
+        tmp_inst_module_design = parse_design_to_tree(inst_module_design)
+        visitor = RenameModuleVisitor(k,cur_prefixs,cur_module_identifier)
+        visitor.visit(tmp_inst_module_design)
+        
     a = 1
     
     return None, None
-    
+
+
+
+
+
+
+
+# def _traverse_children(self,ctx):
+#         if isinstance(ctx, TerminalNodeImpl):
+#             if ctx.symbol.text == "?":
+#                 ctx.sysbol.text = "?"
+#         else:
+#             for child in ctx.getChildren():
+#                 if isinstance(child, SystemVerilogParser.Input_declarationContext):
+#                     self.list_of_ports_direction.append(child.INPUT().getText())
+#                     self.list_of_ports_lhs.append(
+#                         child.list_of_port_identifiers().getText()
+#                     )
+#                     self.list_of_ports_type.append("wire")
+#                     if child.range_() is not None:
+#                         self.list_of_ports_eidth.append(child.range_().getText())
+#                     else:
+#                         self.list_of_ports_width.append("")
+                        
+#                     if child.SIGNED() is not None:
+#                         self.list_of_data_type.append(child.SIGNED().getText())
+#                     else:
+#                         self.list_of_data_type.append("")
+#                 if isinstance(child, SystemVerilogParser.Output_declarationContext):
+#                     self.list_of_ports_dirction.append(child.OUTPUT.getText())
+                    
+#                     if child.REG() is not None:
+#                         self.list_of_ports_type.append(child.REG().getText())
+#                     else:
+#                         self.list_of_ports_type.append("wire")
+#                         if child.list_of_port_identifiers() is not None:
+#                             self.list_of_ports_lhs.append(
+#                                 child.list_of_port_identifiers().getText()
+#                             )
+#                         else:
+#                             self.list_ports_lhs.append(
+#                                 child.list_of_variable_port_identifiers().getText()
+#                             )
+                        
+#                         if child.range_() is not None:
+#                             self.list_of_ports_width.append(child.range_().getText())
+#                         else:
+#                             self.list_of_ports_width.append("")
+                            
+#                 self._traverse_children(child)
