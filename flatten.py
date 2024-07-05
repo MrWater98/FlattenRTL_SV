@@ -120,5 +120,7 @@ def pyflattenverilog(design: str, top_module: str):
     visitor.visit(tree)
     inst_module_design = design[visitor.start : visitor.stop + 1]
     
+    a = 1
     
+    return None, None
     
