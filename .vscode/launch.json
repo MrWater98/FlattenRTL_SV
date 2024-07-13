@@ -12,6 +12,16 @@
             "args": ["tests/regression/adder4bit","-f","filelist.f","-t","adder_4bit","-o","f_adder_4bit.v","-g"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "adder_2bit",
+            "type": "antlr-debug",
+            "request": "launch",
+            "input": "tests/regression/adder4bit/adder_2bit.v",
+            "grammar": "g4/SystemVerilogParser.g4",
+            "startRule": "source_text",
+            "printParseTree": true,
+            "visualParseTree": true
         }
     ]
 }

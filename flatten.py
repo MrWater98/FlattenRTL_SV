@@ -159,9 +159,203 @@ class RenameModuleVisitor(SystemVerilogParserVisitor):
             self.stop = ctx.stop.stop
             self.inst_module_node = ctx 
             self._traverse_children(self.inst_module_node)    
-                    
 
+
+class InstModulePortVisitor (SystemVerilogParserVisitor):
+    def __init__(self,cur_module_identifier):
+        self.inst_module_node = None
+        self.is_first_instantiation_module = False
+        self.list_of_ports_width = []
+        self.list_of_ports_direction = []
+        self.list_of_ports_type = []
+        self.list_of_data_type = []
+        self.list_of_ports_lhs = []
+        self.cur_module_identifier = cur_module_identifier
+        
+    def _traverse_children(self,ctx):
+        if isinstance(ctx, TerminalNodeImpl):
+            if ctx.symbol.text == "?":
+                ctx.sysbol.text = "?"
+        else:
+            for child in ctx.getChildren():
+                if isinstance(child, SystemVerilogParser.Port_directionContext) \
+                    and child.getText()=='input':
+                    self.list_of_ports_direction.append(child.INPUT().getText())
+                    self.list_of_ports_lhs.append(
+                        child.parentCtx.port_identifier().getText()
+                    )
+                    self.list_of_ports_type.append("wire")
+                    if child.parentCtx.implicit_data_type() is not None:
+                        if child.parentCtx.implicit_data_type().packed_dimension() is not None:
+                            self.list_of_ports_width.append(child.parentCtx.implicit_data_type().packed_dimension()[0].getText())
+                        else:
+                            self.list_of_ports_width.append("")
+                        if child.parentCtx.implicit_data_type().signing() is not None:
+                            self.list_of_data_type.append(child.parentCtx.implicit_data_type().signing().getText())
+                        else:
+                            self.list_of_data_type.append("")
+                    # TODO: data_type() is not none
+                        
+                    
+                if isinstance(child, SystemVerilogParser.Port_directionContext) \
+                        and child.getText()=='output':
+                    self.list_of_ports_direction.append(child.getText())
+                    
+                    if child.parentCtx.data_type() is not None:
+                        self.list_of_ports_type.append(child.parentCtx.data_type().integer_vector_type().getText())
+                    else:
+                        self.list_of_ports_type.append("wire")
+                        if child.parentCtx.port_identifier() is not None:
+                            self.list_of_ports_lhs.append(
+                                child.parentCtx.port_identifier().getText()
+                            )
+                        else:
+                            self.list_ports_lhs.append(
+                                child.list_of_variable_port_identifiers().getText()
+                            )
+                        if child.parentCtx.implicit_data_type():
+                            if child.parentCtx.implicit_data_type().packed_dimension() is not None:
+                                # TODO: Incorrect for multiple packed
+                                self.list_of_ports_width.append(child.parentCtx.implicit_data_type().packed_dimension()[0].getText())
+                            else:
+                                self.list_of_ports_width.append("")
+                                
+                            if child.parentCtx.implicit_data_type().signing() is not None :
+                                self.list_of_data.type.append(
+                                    child.parentCtx.implicit_data_type().signing().getText()
+                                )
+                            else:
+                                self.list_of_data_type.append("")
+                        # TODO: data_type() is not none
+                    
+                        
+                    # TODO: inout
+                    if isinstance(child,SystemVerilogParser.Inout_declarationContext):
+                        self.list_of_ports_direction.append(child.INOUT().getText())
+                        self.list_of_ports_lhs.append(
+                            child.list_of_port_identifiers.getText()
+                        )
+                        self.list_of_ports_type.append("wire")
+                        if child.range_()is not None:
+                            self.list_of_ports_width.append(child.range_().getText())
+                        else:
+                            self.list_of_ports_width.append("")
+                            
+                        if child.SIGNED()is not None:
+                            self.list_of_data_type.append(child.SIGNED().getText())
+                        else:
+                            self.list_of_data_type.append("")     
+                self._traverse_children(child)    
+    
+    
+    def visitModule_declaration(self, ctx:SystemVerilogParser.Module_declarationContext):
+        module_name = ctx.module_header().module_identifier().getText()
+        if module_name == self.cur_module_identifier:
+            self.start = ctx.start.start
+            self.stop = ctx.stop.stop
+            self.inst_module_node = ctx
+            self._traverse_children(self.inst_module_node)        
+                   
+class InstBodyVisitor(SystemVerilogParserVisitor):
+    def __init__(self):
+        super().__init__()
+        self.inst_module_node = None
+        self.inst_module_design = None
+        self.text = ""
+    def formatProcess(self,ctx):
+        self._traverse_children(ctx)
+        if ctx.getChildCount() == 0:
+            return ""
+        
+        temp = ""
+        for child in ctx.getChildren():
+            temp+= child.getText() + " "
             
+        for line in temp.splitlines():
+            for char in line:
+                if char == chr(31):
+                    self.text += "\n"
+                else:
+                    self.text += char
+    def _traverse_children(self,ctx,indent=0):
+        if isinstance(ctx, TerminalNodeImpl):
+            pass
+        else:
+            for child in ctx.getChildren():
+                if isinstance(child,SystemVerilogParser.List_of_port_declarationsContext):
+                    child.start.text = (
+                        chr(31) + " " * indent + child.start.text + " "
+                    )
+                if isinstance(child, SystemVerilogParser.Data_declarationContext):
+                    if child.data_type().getText()=="reg":
+                        child.start.text = chr(31) + " " * indent +child.start.text
+                    elif child.data_type().getText()=="integer":
+                        child.start.text = chr(31) + " " * indent +child.start.text
+                if isinstance(child, SystemVerilogParser.Net_declarationContext):
+                    child.start.text = chr(31) + " " * indent +child.start.text
+                if isinstance(child,SystemVerilogParser.Continuous_assignContext):
+                    child.start.text = (
+                        chr(31) + " " * indent +child.start.text + " "
+                    )
+                if isinstance(child,SystemVerilogParser.Always_constructionContext):
+                    child.start.text = (
+                        chr(31) + " " *indent + child.start.text + " "
+                    )
+                    child.stop.text = child.stop.text + chr(31)
+                if isinstance(child,SystemVerilogParser.Event_expressionContext):
+                    child.start.text = " " + child.start.text + " "
+                if isinstance(child,SystemVerilogParser.Case_statementContext):
+                    child.start.text = (
+                        chr(31) + " " * indent + child.start.text + " "
+                    )
+                    child.stop.texxt = chr(31) + " " *indent + child.stop.text + " "
+                if isinstance(child,SystemVerilogParser.Case_itemContext):
+                    child.start.text = (
+                        chr(31) + " " * indent + child.start.text + " "
+                    )
+                if isinstance(child,SystemVerilogParser.Conditional_statementContext):
+                    child.start.text = (
+                        chr(31) + " " * indent + child.start.text + " "
+                    )
+                if isinstance(child, TerminalNodeImpl) and (
+                    child.symbol.text == "else"
+                ):
+                    child.symbol.text(
+                        chr(31) + " " * indent + child.symbol.text + " "
+                    )
+                elif isinstance(child, TerminalNodeImpl) and (
+                    child.symbol.text == "or"
+                ):
+                    child.symbol.text = " " * indent + child.symbol.text + " "
+                if isinstance(child,SystemVerilogParser.Simple_identifierContext):
+                    child.start.text = " " + child.start.text + " "
+                if isinstance(child,SystemVerilogParser.Nonblocking_assignmentContext):
+                    child.start.text = (
+                        chr(31) + " " * indent +child.start.text + " "
+                    )
+                if isinstance(child,SystemVerilogParser.Seq_blockContext):
+                    child.start.text = (
+                        chr(31) + " " * indent +child.start.text + " "
+                    )
+                    child.stop.text = chr(31) + " " * indent + child.stop.text + " "
+                if isinstance(child,SystemVerilogParser.Blocking_assignmentContext):
+                    child.start.text = (
+                        chr(31) + " " *indent + child.start.text + " "
+                    )
+                if isinstance(child,SystemVerilogParser.Module_instantiationContext):
+                    child.start.text = (
+                        chr(31) + " " *indent + child.start.text + " "
+                    )
+                    self._traverse_children(child, indent +1 )
+        
+    def visitModule_declaration(self, ctx:SystemVerilogParser.Module_declarationContext):
+        self.inst_module_node = ctx 
+        self.formatProcess(self.inst_module_node)
+        self.inst_module_node = parse_design_to_tree(self.text)
+
+
+
+
 def pyflattenverilog(design: str, top_module: str):
     tree = parse_design_to_tree(design)
     
@@ -191,15 +385,128 @@ def pyflattenverilog(design: str, top_module: str):
     visitor.visit(tree)
     inst_module_design = design[visitor.start : visitor.stop + 1]
     
-    inst_module_design_tree = []
+    inst_module_design_trees = []
     inst_module_nodes = []
     no_port_parameter = False
     for k in range(0,len(cur_prefixs)):
         tmp_inst_module_design = parse_design_to_tree(inst_module_design)
         visitor = RenameModuleVisitor(k,cur_prefixs,cur_module_identifier)
         visitor.visit(tmp_inst_module_design)
+        inst_module_design_trees.append(tmp_inst_module_design)
+        inst_module_nodes.append(visitor.inst_module_node)
         
+    cur_list_of_ports_lhs = []
+    cur_list_of_ports_lhs_width = []
+    cur_list_of_ports_width = []
+    cur_list_of_ports_direction = []
+    cur_list_of_ports_type = []
+    cur_list_of_data_type = []
+    cur_dict_of_ports = {}
+
+    for i in range(0, len(inst_module_design_trees)):
+        visitor = InstModulePortVisitor(cur_module_identifier)
+        visitor.visit(inst_module_design_trees[i])
+        cur_list_of_ports_lhs = cur_list_of_ports_lhs + visitor.list_of_ports_lhs
+        cur_list_of_ports_lhs_width = (
+            cur_list_of_ports_lhs_width + visitor.list_of_ports_width
+        )
+        cur_list_of_ports_width = cur_list_of_ports_width + visitor.list_of_ports_width
+        cur_list_of_ports_direction = (
+            cur_list_of_ports_direction + visitor.list_of_ports_direction
+        )
+        cur_list_of_ports_type = cur_list_of_ports_type + visitor.list_of_ports_type
+        cur_list_of_data_type = cur_list_of_data_type + visitor.list_of_data_type
+        
+    for i in range(0,len(cur_list_of_ports_lhs)):
+        cur_dict_of_ports[cur_list_of_ports_lhs[i]] = {
+            "width": cur_list_of_ports_lhs_width[i],
+            "direction": cur_list_of_ports_direction[i],
+            "type":cur_list_of_ports_type[i],
+        }   
+        
+    cur_new_variable = []
+    cur_new_assign = []
+    
+    for k in range(0,len(cur_prefixs)):
+        len_instance_port = int(len(cur_list_of_ports_rhs)/len(cur_prefixs))
+        ports_lhs_width = copy.deepcopy(cur_list_of_ports_lhs_width)
+        
+        for i in range(0,len_instance_port):
+            if cur_list_of_data_type[k * len_instance_port]:
+                if cur_list_of_data_type[k * len_instance_port + i]!= "":
+                    cur_new_variable.append(
+                        cur_list_of_data_type[k * len_instance_port + i]
+                        + ports_lhs_width[k * len_instance_port + i]
+                        + " "
+                        + cur_prefixs[k]
+                        + "_"
+                        + cur_list_of_ports_lhs[k * len_instance_port +i]
+                        +";"
+                    )
+            elif cur_list_of_ports_type[k * len_instance_port + i] == "reg":
+                if True:
+                    cur_new_variable.append(
+                        "reg"
+                        + ports_lhs_width[k * len_instance_port +i]
+                        + " "
+                        + cur_prefixs[k]
+                        + "_"
+                        + cur_list_of_ports_lhs[k * len_instance_port + i]
+                        + ";"
+                    )
+            else:
+                cur_new_variable.append(
+                    "wire"
+                    + ports_lhs_width[k *len_instance_port +i]
+                    + " "
+                    +cur_prefixs[k]
+                    + "_"
+                    + cur_list_of_ports_lhs[k * len_instance_port +i]
+                    + ";"
+                )
+            if cur_list_of_ports_direction[k * len_instance_port + i] == "input":
+                rhs = dict_of_lhs_to_rhs[cur_prefixs[k]].get(
+                    cur_list_of_ports_lhs[k * len_instance_port + i]
+                )
+                if rhs == "":
+                    continue
+                if rhs is None:
+                    rhs = cur_list_of_ports_rhs[k* len_instance_port +i]
+                cur_new_assign.append(
+                    "assign "
+                    + cur_prefixs[k]
+                    + "_" 
+                    + cur_list_of_ports_lhs[k * len_instance_port +i]
+                    + " = "
+                    + rhs
+                    + ";"
+                )
+            else:
+                rhs = dict_of_lhs_to_rhs[cur_prefixs[k]].get(
+                    cur_list_of_ports_lhs[k * len_instance_port + i]
+                )
+                if rhs == "":
+                    continue
+                if rhs is None:
+                    rhs = cur_list_of_ports_rhs[k * len_instance_port + i]
+                cur_new_assign.append(
+                    "assign "
+                    + rhs
+                    + " = "
+                    + cur_prefixs[k]
+                    + "_"
+                    + cur_list_of_ports_lhs[k * len_instance_port + i]
+                    + ";"
+                )
+    inst_module_designs = []
+    for k in range(0,len(cur_prefixs)):
+        visitor = InstBodyVisitor()
+        visitor.visit(inst_module_nodes[k])
+        inst_module_designs.append(visitor.text)
+        
+   
     a = 1
+   
     
     return None, None
 
@@ -209,46 +516,5 @@ def pyflattenverilog(design: str, top_module: str):
 
 
 
-# def _traverse_children(self,ctx):
-#         if isinstance(ctx, TerminalNodeImpl):
-#             if ctx.symbol.text == "?":
-#                 ctx.sysbol.text = "?"
-#         else:
-#             for child in ctx.getChildren():
-#                 if isinstance(child, SystemVerilogParser.Input_declarationContext):
-#                     self.list_of_ports_direction.append(child.INPUT().getText())
-#                     self.list_of_ports_lhs.append(
-#                         child.list_of_port_identifiers().getText()
-#                     )
-#                     self.list_of_ports_type.append("wire")
-#                     if child.range_() is not None:
-#                         self.list_of_ports_eidth.append(child.range_().getText())
-#                     else:
-#                         self.list_of_ports_width.append("")
-                        
-#                     if child.SIGNED() is not None:
-#                         self.list_of_data_type.append(child.SIGNED().getText())
-#                     else:
-#                         self.list_of_data_type.append("")
-#                 if isinstance(child, SystemVerilogParser.Output_declarationContext):
-#                     self.list_of_ports_dirction.append(child.OUTPUT.getText())
-                    
-#                     if child.REG() is not None:
-#                         self.list_of_ports_type.append(child.REG().getText())
-#                     else:
-#                         self.list_of_ports_type.append("wire")
-#                         if child.list_of_port_identifiers() is not None:
-#                             self.list_of_ports_lhs.append(
-#                                 child.list_of_port_identifiers().getText()
-#                             )
-#                         else:
-#                             self.list_ports_lhs.append(
-#                                 child.list_of_variable_port_identifiers().getText()
-#                             )
-                        
-#                         if child.range_() is not None:
-#                             self.list_of_ports_width.append(child.range_().getText())
-#                         else:
-#                             self.list_of_ports_width.append("")
-                            
-#                 self._traverse_children(child)
+
+
