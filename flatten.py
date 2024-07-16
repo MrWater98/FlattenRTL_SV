@@ -269,7 +269,7 @@ class InstBodyVisitor(SystemVerilogParserVisitor):
         
         temp = ""
         for child in ctx.getChildren():
-            temp+= child.getText() + " "
+            temp += child.getText() + " "
             
         for line in temp.splitlines():
             for char in line:
@@ -297,7 +297,7 @@ class InstBodyVisitor(SystemVerilogParserVisitor):
                     child.start.text = (
                         chr(31) + " " * indent +child.start.text + " "
                     )
-                if isinstance(child,SystemVerilogParser.Always_constructionContext):
+                if isinstance(child,SystemVerilogParser.Always_constructContext):
                     child.start.text = (
                         chr(31) + " " *indent + child.start.text + " "
                     )
@@ -342,18 +342,73 @@ class InstBodyVisitor(SystemVerilogParserVisitor):
                     child.start.text = (
                         chr(31) + " " *indent + child.start.text + " "
                     )
-                if isinstance(child,SystemVerilogParser.Module_instantiationContext):
+                if isinstance(child,SystemVerilogParser.Module_program_interface_instantiationContext):
                     child.start.text = (
                         chr(31) + " " *indent + child.start.text + " "
                     )
-                    self._traverse_children(child, indent +1 )
+                self._traverse_children(child, indent +1 )
         
     def visitModule_declaration(self, ctx:SystemVerilogParser.Module_declarationContext):
         self.inst_module_node = ctx 
         self.formatProcess(self.inst_module_node)
         self.inst_module_node = parse_design_to_tree(self.text)
 
-
+class InstBodyVisitor2(SystemVerilogParserVisitor):
+    def __init__(self):
+        self.start = None
+        self.stop = None
+        self.firstTerminal = False
+        
+    def ExtractStartAndStop(self,ctx):
+        self.stop = ctx.ENDMODULE().getSymbol().start - 1
+        for child in ctx.module_header().getChildren():
+            if isinstance(child,TerminalNodeImpl):
+                if self.firstTerminal == False:
+                    self.start = child.symbol.stop + 1
+                    self.firstTerminal = True
+        
+    def visitModule_declaration(self,ctx:SystemVerilogParser.Module_declarationContext):
+        self.ExtractStartAndStop(ctx)
+                    
+class IdentifierVisitor(SystemVerilogParserVisitor):
+    def __init__(self,cur_name_of_module_instance,top_module,design,cur_new_variable,insert_parts,cur_new_assign):
+        self.start = []
+        self.stop = []
+        self.tmp_design = ''
+        self.cur_name_of_module_instance = cur_name_of_module_instance
+        self.top_module = top_module
+        self.design = design
+        self.cur_new_variable = cur_new_variable
+        self.insert_parts = insert_parts
+        self.cur_new_assign = cur_new_assign
+    
+    def _traverse_children(self,ctx):
+        if isinstance(ctx, TerminalNodeImpl):
+            pass
+        else:
+            for child in ctx.getChildren():
+                if isinstance(child, SystemVerilogParser.Module_program_interface_instantiationContext):
+                    for cur_name in self.cur_name_of_module_instance:
+                        if (child.hierarchical_instance()[0].name_of_instance().getText()== cur_name):
+                            self.start.append(child.start.start)
+                            self.stop.append(child.stop.stop)
+                self._traverse_children(child)
+    
+    def visitModule_declaration(self,ctx:SystemVerilogParser.Module_declarationContext):
+        if ctx.module_header().module_identifier().getText() == self.top_module:
+            self._traverse_children(ctx)
+            self.tmp_design += self.design[ : self.start[0]] + '\n'
+            for wire in self.cur_new_variable:
+                self.tmp_design += " "*4 + wire + '\n'
+            self.tmp_design += " "*4 + self.insert_parts[0] + '\n'
+            for i in range(1,len(self.start)):
+                self.tmp_design += " "*4+self.design[self.stop[i-1] + 1 : self.start[i]] + '\n'
+                self.tmp_design += self.insert_parts[i] + '\n'
+            for assign in self.cur_new_assign:
+                self.tmp_design += " "*4+assign +'\n'
+            self.tmp_design += " "*4+self.design[self.stop[-1] + 1 :] + '\n'
+                                          
+                   
 
 
 def pyflattenverilog(design: str, top_module: str):
@@ -502,13 +557,22 @@ def pyflattenverilog(design: str, top_module: str):
     for k in range(0,len(cur_prefixs)):
         visitor = InstBodyVisitor()
         visitor.visit(inst_module_nodes[k])
+        inst_module_nodes[k]= visitor.inst_module_node
         inst_module_designs.append(visitor.text)
         
-   
+    insert_parts = []
+    for k in range (0,len(cur_prefixs)):
+        visitor = InstBodyVisitor2()
+        visitor.visit(inst_module_nodes[k])
+        insert_parts.append(inst_module_designs[k][visitor.start : visitor.stop])
+        
+    visitor = IdentifierVisitor(cur_name_of_module_instance=cur_name_of_module_instances,design=design,
+                                top_module = top_module, cur_new_variable=cur_new_variable,insert_parts = insert_parts,cur_new_assign=cur_new_assign)
+    visitor.visit(top_node_tree)
     a = 1
    
     
-    return None, None
+    return False, visitor.tmp_design
 
 
 
