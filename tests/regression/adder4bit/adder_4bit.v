@@ -20,3 +20,4 @@ module adder_4bit (
 
     assign sum = {sum_upper[2:0], sum_lower[1:0]};
 endmodule
+

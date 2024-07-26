@@ -14,6 +14,15 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Debug MIPS",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["tests/regression/mips","-f","filelist.f","-t","mips_16_core_top","-o","f_mips.v","-g"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "adder_2bit",
             "type": "antlr-debug",
             "request": "launch",
