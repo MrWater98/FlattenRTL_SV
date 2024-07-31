@@ -14,6 +14,15 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Debug Special Adder_4bit",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["tests/regression/_adder4bit","-f","filelist.f","-t","adder_4bit","-o","f_adder_4bit.v","-g"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Debug MIPS",
             "type": "debugpy",
             "request": "launch",

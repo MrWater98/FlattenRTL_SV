@@ -1228,8 +1228,7 @@ endmodule /***************************************************
     reg IF_stage_inst_pc;
     wire[15:0] IF_stage_inst_instruction;
 
-     
-  always @(  posedge   IF_stage_inst_clk          or  posedge  IF_stage_inst_rst )
+    always @(  posedge   IF_stage_inst_clk          or  posedge  IF_stage_inst_rst )
          begin 
              if ( IF_stage_inst_rst )
                  begin  
@@ -1246,8 +1245,7 @@ endmodule /***************************************************
                          end 
                  end 
          end
-   
-  instruction_mem   imem (. clk ( IF_stage_inst_clk ),. pc ( IF_stage_inst_pc ),. instruction ( IF_stage_inst_instruction ));
+    instruction_mem   imem (. clk ( IF_stage_inst_clk ),. pc ( IF_stage_inst_pc ),. instruction ( IF_stage_inst_instruction ));
     assign IF_stage_inst_clk = clk;
     assign IF_stage_inst_rst = rst;
     assign IF_stage_inst_instruction_fetch_en = pipeline_stall_n;

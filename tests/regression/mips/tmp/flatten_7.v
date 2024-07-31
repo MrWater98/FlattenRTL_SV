@@ -1228,8 +1228,7 @@ endmodule /***************************************************
     reg IF_stage_inst_pc;
     wire[15:0] IF_stage_inst_instruction;
 
-     
-  always @(  posedge   IF_stage_inst_clk          or  posedge  IF_stage_inst_rst )
+    always @(  posedge   IF_stage_inst_clk          or  posedge  IF_stage_inst_rst )
          begin 
              if ( IF_stage_inst_rst )
                  begin  
@@ -1246,12 +1245,11 @@ endmodule /***************************************************
                          end 
                  end 
          end
-   
-  wire imem_clk;
+    wire imem_clk;
     wire[8-1:0] imem_pc;
     wire[15:0] imem_instruction;
 
-     reg[15:0] imem_rom [2**8-1:0]; 
+    reg[15:0] imem_rom [2**8-1:0]; 
     wire[8-1:0] imem_rom_addr = imem_pc [8-1:0]; 
   assign  imem_instruction = imem_rom [ imem_rom_addr ];
     assign imem_clk = IF_stage_inst_clk;
@@ -1281,7 +1279,7 @@ endmodule /***************************************************
     wire[2:0] ID_stage_inst_decoding_op_src1;
     wire[2:0] ID_stage_inst_decoding_op_src2;
 
-     reg[15:0] ID_stage_inst_instruction_reg ; 
+    reg[15:0] ID_stage_inst_instruction_reg ; 
     wire[3:0] ID_stage_inst_ir_op_code ; 
     wire[2:0] ID_stage_inst_ir_dest ; 
     wire[2:0] ID_stage_inst_ir_src1 ; 
@@ -1313,7 +1311,6 @@ endmodule /***************************************************
                          end 
                  end 
          end
-  
   assign  ID_stage_inst_ir_op_code = ID_stage_inst_instruction_reg [15:12]; 
   assign  ID_stage_inst_ir_dest = ID_stage_inst_instruction_reg [11:9]; 
   assign  ID_stage_inst_ir_src1 = ID_stage_inst_instruction_reg [8:6]; 
@@ -1433,7 +1430,6 @@ endmodule /***************************************************
                           end endcase
                  end 
          end
-  
   assign  ID_stage_inst_decoding_op_is_branch =( ID_stage_inst_ir_op_code ==4'b1100)?1:0; 
   assign  ID_stage_inst_decoding_op_is_store =( ID_stage_inst_ir_op_code ==4'b1011)?1:0; 
   assign  ID_stage_inst_mem_write_data = ID_stage_inst_reg_read_data_2 ; 
@@ -1452,7 +1448,6 @@ endmodule /***************************************************
                      ID_stage_inst_pipeline_reg_out  [56:0]<={ ID_stage_inst_ex_alu_cmd [2:0], ID_stage_inst_ex_alu_src1 [15:0], ID_stage_inst_ex_alu_src2 [15:0], ID_stage_inst_mem_write_en , ID_stage_inst_mem_write_data [15:0], ID_stage_inst_write_back_en , ID_stage_inst_write_back_dest [2:0], ID_stage_inst_write_back_result_mux };
                  end 
          end
-  
   assign  ID_stage_inst_reg_read_addr_1 = ID_stage_inst_ir_src1 ; 
   assign  ID_stage_inst_reg_read_addr_2 = ID_stage_inst_ir_src2 ; 
   always @(*)
@@ -1477,7 +1472,6 @@ endmodule /***************************************************
                      ID_stage_inst_branch_taken  =0;
                  end 
          end
-  
   assign  ID_stage_inst_branch_offset_imm = ID_stage_inst_ir_imm ; 
   assign  ID_stage_inst_decoding_op_src1 = ID_stage_inst_ir_src1 ; 
   assign  ID_stage_inst_decoding_op_src2 =( ID_stage_inst_ir_op_code ==4'b0000|| ID_stage_inst_ir_op_code ==4'b1001|| ID_stage_inst_ir_op_code ==4'b1010|| ID_stage_inst_ir_op_code ==4'b1100)?3'b000: ID_stage_inst_ir_src2 ;
@@ -1502,18 +1496,16 @@ endmodule /***************************************************
     reg EX_stage_inst_pipeline_reg_out;
     wire[2:0] EX_stage_inst_ex_op_dest;
 
-     
     wire[2:0] EX_stage_inst_alu_cmd = EX_stage_inst_pipeline_reg_in [56:54]; 
     wire[15:0] EX_stage_inst_alu_src1 = EX_stage_inst_pipeline_reg_in [53:38]; 
     wire[15:0] EX_stage_inst_alu_src2 = EX_stage_inst_pipeline_reg_in [37:22]; 
     wire[15:0] EX_stage_inst_ex_alu_result ;  
-  wire[15:0] alu_inst_a;
+    wire[15:0] alu_inst_a;
     wire[15:0] alu_inst_b;
     wire[2:0] alu_inst_cmd;
     reg alu_inst_r;
 
-     
-  always @(*)
+    always @(*)
          begin 
              case ( alu_inst_cmd )
               3 'bxxx: 
@@ -1557,7 +1549,6 @@ endmodule /***************************************************
                      EX_stage_inst_pipeline_reg_out  [21:0]<= EX_stage_inst_pipeline_reg_in [21:0];
                  end 
          end
-  
   assign  EX_stage_inst_ex_op_dest = EX_stage_inst_pipeline_reg_in [3:1];
     assign EX_stage_inst_clk = clk;
     assign EX_stage_inst_rst = rst;
@@ -1572,23 +1563,21 @@ endmodule /***************************************************
     reg MEM_stage_inst_pipeline_reg_out;
     wire[2:0] MEM_stage_inst_mem_op_dest;
 
-     
     wire[15:0] MEM_stage_inst_ex_alu_result = MEM_stage_inst_pipeline_reg_in [37:22]; 
     wire MEM_stage_inst_mem_write_en = MEM_stage_inst_pipeline_reg_in [21]; 
     wire[15:0] MEM_stage_inst_mem_write_data = MEM_stage_inst_pipeline_reg_in [20:5]; 
     wire[15:0] MEM_stage_inst_mem_read_data ;  
-  wire dmem_clk;
+    wire dmem_clk;
     wire[15:0] dmem_mem_access_addr;
     wire[15:0] dmem_mem_write_data;
     wire dmem_mem_write_en;
     wire[15:0] dmem_mem_read_data;
 
-     reg[15:0] dmem_ram [(2**8)-1:0]; 
+    reg[15:0] dmem_ram [(2**8)-1:0]; 
     wire[8-1:0] dmem_ram_addr = dmem_mem_access_addr [8-1:0]; 
   always @( posedge  dmem_clk )
          if ( dmem_mem_write_en ) 
              dmem_ram  [ dmem_ram_addr ]<= dmem_mem_write_data ;
- 
   assign  dmem_mem_read_data = dmem_ram [ dmem_ram_addr ];
     assign dmem_clk = MEM_stage_inst_clk;
     assign dmem_mem_access_addr = MEM_stage_inst_ex_alu_result;
@@ -1609,7 +1598,6 @@ endmodule /***************************************************
                      MEM_stage_inst_pipeline_reg_out  [4:0]<= MEM_stage_inst_pipeline_reg_in [4:0];
                  end 
          end
-  
   assign  MEM_stage_inst_mem_op_dest = MEM_stage_inst_pipeline_reg_in [3:1];
     assign MEM_stage_inst_clk = clk;
     assign MEM_stage_inst_rst = rst;

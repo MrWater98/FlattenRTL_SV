@@ -1228,8 +1228,7 @@ endmodule /***************************************************
     reg IF_stage_inst_pc;
     wire[15:0] IF_stage_inst_instruction;
 
-     
-  always @(  posedge   IF_stage_inst_clk          or  posedge  IF_stage_inst_rst )
+    always @(  posedge   IF_stage_inst_clk          or  posedge  IF_stage_inst_rst )
          begin 
              if ( IF_stage_inst_rst )
                  begin  
@@ -1246,12 +1245,11 @@ endmodule /***************************************************
                          end 
                  end 
          end
-   
-  wire imem_clk;
+    wire imem_clk;
     wire[8-1:0] imem_pc;
     wire[15:0] imem_instruction;
 
-     reg[15:0] imem_rom [2**8-1:0]; 
+    reg[15:0] imem_rom [2**8-1:0]; 
     wire[8-1:0] imem_rom_addr = imem_pc [8-1:0]; 
   assign  imem_instruction = imem_rom [ imem_rom_addr ];
     assign imem_clk = IF_stage_inst_clk;
