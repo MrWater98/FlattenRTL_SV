@@ -241,23 +241,26 @@ class InstModulePortVisitor (SystemVerilogParserVisitor):
                         self.list_of_data_type.append("")
                     # TODO: data_type() is not none
                     
-                        
-                    # TODO: inout
-                    if isinstance(child,SystemVerilogParser.Inout_declarationContext):
-                        self.list_of_ports_direction.append(child.INOUT().getText())
-                        self.list_of_ports_lhs.append(
-                            child.list_of_port_identifiers.getText()
-                        )
-                        self.list_of_ports_type.append("wire")
-                        if child.range_()is not None:
-                            self.list_of_ports_width.append(child.range_().getText())
+                if isinstance(child, SystemVerilogParser.Inout_declarationContext) \
+                        and child.getText()=='inout':
+                    self.list_of_ports_direction.append(child.getText())
+                    self.list_of_ports_lhs.append(
+                        child.list_of_port_identifiers().getText()
+                    )
+                    self.list_of_ports_type.append("wire")
+                    if child.implicit_data_type() is not None:
+                        if child.implicit_data_type().packed_dimension() is not None:
+                            self.list_of_ports_width.append(child.implicit_data_type().packed_dimension()[0].getText())
                         else:
                             self.list_of_ports_width.append("")
-                            
-                        if child.SIGNED()is not None:
-                            self.list_of_data_type.append(child.SIGNED().getText())
+                        if child.implicit_data_type().signing() is not None:
+                            self.list_of_data_type.append(child.implicit_data_type().signing().getText())
                         else:
-                            self.list_of_data_type.append("")     
+                            self.list_of_data_type.append("")
+                    else:
+                        self.list_of_ports_width.append("")
+                        self.list_of_data_type.append("")
+                        
                 self._traverse_children_in_header(child)    
     
     def _traverse_children_in_module_item(self,ctx):
@@ -308,23 +311,29 @@ class InstModulePortVisitor (SystemVerilogParserVisitor):
                             self.list_of_ports_width.append("")
                             self.list_of_data_type.append("")
                     
-                        
-                    # TODO: inout
-                    if isinstance(child,SystemVerilogParser.Inout_declarationContext):
-                        self.list_of_ports_direction.append(child.INOUT().getText())
+                # TODO: inout
+                if isinstance(child, SystemVerilogParser.Inout_declarationContext) \
+                    and child.getChild(0).getText()=='inout':
+                    for item in child.list_of_port_identifiers().port_id():
+                        self.list_of_ports_direction.append('inout')
                         self.list_of_ports_lhs.append(
-                            child.list_of_port_identifiers.getText()
+                            item.getText()
                         )
                         self.list_of_ports_type.append("wire")
-                        if child.range_()is not None:
-                            self.list_of_ports_width.append(child.range_().getText())
+                        if child.implicit_data_type() is not None:
+                            if child.implicit_data_type().packed_dimension() is not None:
+                                self.list_of_ports_width.append(child.implicit_data_type().packed_dimension()[0].getText())
+                            else:
+                                self.list_of_ports_width.append("")
+                            if child.implicit_data_type().signing() is not None:
+                                self.list_of_data_type.append(child.implicit_data_type().signing().getText())
+                            else:
+                                self.list_of_data_type.append("")
                         else:
                             self.list_of_ports_width.append("")
-                            
-                        if child.SIGNED()is not None:
-                            self.list_of_data_type.append(child.SIGNED().getText())
-                        else:
-                            self.list_of_data_type.append("")     
+                            self.list_of_data_type.append("")
+                    
+                       
                 self._traverse_children_in_module_item(child)
     
     def visitModule_declaration(self, ctx:SystemVerilogParser.Module_declarationContext):
