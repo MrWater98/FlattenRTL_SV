@@ -1,11 +1,11 @@
-module adder_2bit (
+module adder_2bit ( // hello
     input [1:0] a,
     input [1:0] b,
     output [2:0] sum
 );
     assign sum = a + b;
 endmodule
-module adder_4bit (
+module adder_4bit ( // hello
     input [3:0] a,
     input [3:0] b,
     output [4:0] sum

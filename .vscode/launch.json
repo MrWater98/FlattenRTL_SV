@@ -23,6 +23,15 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Debug Adder Param",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["tests/regression/_adder_param","-f","filelist.f","-t","TopModule","-o","f_adder.v","-g"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Debug MIPS",
             "type": "debugpy",
             "request": "launch",
@@ -30,6 +39,16 @@
             "args": ["tests/regression/mips","-f","filelist.f","-t","mips_16_core_top","-o","f_mips.v","-g"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug rocket",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["tests/regression/rocket","-f","filelist.f","-t","RocketTile","-o","f_rocket.v","-g"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+            ]
         },
         {
             "name": "adder_2bit",

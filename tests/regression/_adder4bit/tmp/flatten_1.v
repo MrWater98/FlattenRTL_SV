@@ -17,7 +17,7 @@ module adder_4bit (
     wire [2:0] sum_lower;
     wire [2:0] sum_upper;
 
-    wire[1:0] adder_lower_a;
+        wire[1:0] adder_lower_a;
     wire[1:0] adder_lower_b;
     wire[2:0] adder_lower_sum;
     wire[1:0] adder_upper_a;

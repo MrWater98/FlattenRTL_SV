@@ -76,4 +76,9 @@ def main():  #定义一个叫main的函数
         print(f'[INFO] Formating the flattened design in {output_file} using iStyle')    #打印字符串
 
 if __name__ == "__main__":    #如果__name__等于__main__
+    # 计算总时长
+    import time    #导入time模块
+    start = time.time()    #赋值给start一个time.time()的值
     main()    #执行main函数
+    end = time.time()    #赋值给end一个time.time()的值
+    print(f'[INFO] Total time: {end - start} seconds')    #打印字符串

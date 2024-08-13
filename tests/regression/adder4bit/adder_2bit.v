@@ -1,4 +1,4 @@
-module adder_2bit (
+module adder_2bit ( // hello
     input [1:0] a,
     input [1:0] b,
     output [2:0] sum

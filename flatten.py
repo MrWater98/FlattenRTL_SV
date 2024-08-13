@@ -64,15 +64,155 @@ class MyModuleInstantiationVisitor(SystemVerilogParserVisitor):
                                     self.dict_of_lhs_to_rhs[self.name_of_module_instances[-1]][child.port_identifier().getText()].replace("?", " ? ")
                             else:
                                 self.dict_of_lhs_to_rhs[self.name_of_module_instances[-1]][child.port_identifier().getText()] = ""
-                          
+                        if ctx.parameter_value_assignment() is not None:
+                            list_of_parameter_assignments = ctx.parameter_value_assignment().list_of_parameter_assignments()
+                            for child in list_of_parameter_assignments.getChildren():
+                                if isinstance(child, TerminalNodeImpl):
+                                    pass
+                                else:
+                                    if isinstance(child, SystemVerilogParser.Named_parameter_assignmentContext):
+                                        if (self.dict_of_parameters.get(self.name_of_module_instances[-1]) is None):
+                                            self.dict_of_parameters[self.name_of_module_instances[-1]] = {}
+                                        self.dict_of_parameters[self.name_of_module_instances[-1]][
+                                            self.name_of_module_instances[-1]
+                                            + "_"
+                                            + child.parameter_identifier().getText()
+                                        ] = child.param_expression().getText()
+                                    elif isinstance(child, SystemVerilogParser.Ordered_parameter_assignmentContext):
+                                        if (self.dict_of_parameters.get(self.name_of_module_instances[-1])is None):
+                                            self.dict_of_parameters[self.name_of_module_instances[-1]] = {}
+                                        self.dict_of_parameters[self.name_of_module_instances[-1]][
+                                            int(list_of_parameter_assignments.children.index(child)/2)
+                                        ] = child.getText()
+
+class ParamVisitor(SystemVerilogParserVisitor):
+    def __init__(self, cur_dict_of_parameters, cur_prefixs):
+        self.counter = 0
+        self.cur_prefixs = cur_prefixs
+        self.cur_dict_of_parameters = cur_dict_of_parameters
+
+    # A very special case:
+    # "Parameter A = 3"
+    # "Parameter B = A;"
+    # After flatten, it should be
+    # Parameter B = [cur_prefix]_A;
+    # Can even handle complicated case like:
+    # Parameter C = A + B;
+    def find_and_repalce_param_in_param_value(self,  param_value, prefix, cur_dict_of_parameter):
+        item = cur_dict_of_parameter[prefix]
+        for _key in item.keys():
+            if isinstance(_key,int):
+                continue 
+            tmp_item = _key[len(prefix) + 1 :]
+            # Find whole word 'item' in param_value
+            pattern = r"\b{}\b".format(tmp_item)
+            if re.search(pattern, param_value):
+                if prefix + '_' + tmp_item in item:
+                    param_value = re.sub(pattern, _key, param_value)
+        return param_value
+
+    # assign to cur_dict_of_parameters
+    def visitParam_assignment(self, ctx: SystemVerilogParser.Param_assignmentContext):
+        if ctx.getChildCount() == 3:
+            param_name = ctx.getChild(0).getText().replace(" ", "")
+            param_value = ctx.getChild(2).getText().replace(" ", "")
+            
+            for item in self.cur_prefixs:
+                if self.cur_dict_of_parameters.get(item) is None:
+                    self.cur_dict_of_parameters[item] = {}
+                if (self.cur_dict_of_parameters[item].get(item + "_" + param_name)is None):
+                    # Handle the ordered parameter
+                    if (self.cur_dict_of_parameters[item].get(self.counter)is not None):
+                        self.cur_dict_of_parameters[item][item + "_" + param_name] = self.cur_dict_of_parameters[item].get(self.counter)
+                    else:
+                        param_value = self.find_and_repalce_param_in_param_value(
+                            param_value, item, self.cur_dict_of_parameters
+                        )
+                        self.cur_dict_of_parameters[item][item + "_" + param_name] = param_value
+            self.counter += 1
+            
+class MoudleParameterPortVisitor(SystemVerilogParserVisitor):
+    def __init__(self, design, cur_prefixs, cur_dict_of_parameter, top_module):
+        self.start = None
+        self.stop = None
+        self.ports_parameter = None
+        self.design = design
+        self.cur_prefixs = cur_prefixs
+        self.cur_dict_of_parameters = cur_dict_of_parameter
+        self.top_module = top_module
+        
+        
+    def _modify_port_parameter(self):
+        ports_parameter = self.design[self.start:self.stop+1]
+        for item in self.cur_prefixs:
+            if self.cur_dict_of_parameters.get(item) is None:
+                continue
+            else:
+                # find index of the last ")" of str ports_parameter
+                index = ports_parameter.rfind(')')
+                index = index - len(ports_parameter)
+                for key in self.cur_dict_of_parameters[item]:
+                    # ignore the key with int type
+                    if isinstance(key,int):
+                        continue
+                    ports_parameter = ports_parameter[:index]+",\nparameter "+key+"="+self.cur_dict_of_parameters[item][key]+ports_parameter[index:]
+            self.ports_parameter = ports_parameter
+
+    def _add_port_parameter(self):
+        ports_parameter = " #()"
+        for item in self.cur_prefixs:
+            if self.cur_dict_of_parameters.get(item) is None:
+                continue
+            else:
+                # find index of the last ")" of str ports_parameter
+                index = ports_parameter.rfind(")")
+                index = index - len(ports_parameter)
+                for key in self.cur_dict_of_parameters[item]:
+                    # ignore the key with int type
+                    if isinstance(key, int):
+                        continue
+                    ports_parameter = (
+                        ports_parameter[:index]
+                        + "\n    parameter "
+                        + key
+                        + "="
+                        + self.cur_dict_of_parameters[item][key]
+                        + ","
+                        + ports_parameter[index:]
+                    )
+
+        ports_parameter = (
+            ports_parameter[:ports_parameter.rfind(",")]
+            + ports_parameter[ports_parameter.rfind(",") + 1 :]
+        )
+        self.ports_parameter = ports_parameter
+
+    def visitModule_declaration(
+        self, ctx: SystemVerilogParser.Module_declarationContext
+    ):
+        if ctx.module_header().parameter_port_list() is not None:
+            self.start = ctx.module_header().parameter_port_list().start.start
+            self.stop = ctx.module_header().parameter_port_list().stop.stop
+            # If the submodule have parameters, we should generate new parameters from the submodule
+            if self.start != self.stop:
+                self._modify_port_parameter()
+        else:
+            self.start = ctx.module_header().module_identifier().stop.stop + 1
+            self.stop = ctx.module_header().module_identifier().stop.stop
+            self._add_port_parameter()
+    
+
 class InstModuleVisitor(SystemVerilogParserVisitor):
-    def __init__(self, cur_module_identifier):
+    def __init__(self, cur_module_identifier, cur_dict_of_parameters, cur_prefixs, top_module):
         self.inst_module_node = None
         self.inst_module_design = None
         self.start = None   
         self.stop = None 
         self.indent = 2
         self.cur_module_identifier = cur_module_identifier
+        self.cur_dict_of_parameters = cur_dict_of_parameters
+        self.cur_prefixs = cur_prefixs
+        self.top_module = top_module
 
         self.parameter_strat = None
         self.parameter_stop = None
@@ -84,6 +224,18 @@ class InstModuleVisitor(SystemVerilogParserVisitor):
             self.start = ctx.start.start
             self.stop = ctx.stop.stop
             self.inst_module_node = ctx
+            paramVisitor = ParamVisitor(self.cur_dict_of_parameters, self.cur_prefixs)
+            paramVisitor.visit(ctx)
+        if self.start != None:
+            if module_name == self.top_module:
+                moduleParameterPortVisitor = MoudleParameterPortVisitor(self.inst_module_design, self.cur_prefixs, self.cur_dict_of_parameters, self.top_module)
+                moduleParameterPortVisitor.visit(ctx)
+                self.ports_param_str = moduleParameterPortVisitor.ports_parameter
+                self.parameter_start = moduleParameterPortVisitor.start
+                self.parameter_stop = moduleParameterPortVisitor.stop
+                
+            
+            
 
 class RenameModuleVisitor(SystemVerilogParserVisitor):
     def __init__(self,cur_prefixs_index,cur_prefixs,cur_module_identifier):
@@ -98,6 +250,15 @@ class RenameModuleVisitor(SystemVerilogParserVisitor):
         self.cur_prefixs =cur_prefixs
         self.cur_module_identifier = cur_module_identifier
     
+    def is_parents_parameter_port_list(self,ctx):
+        if ctx is None:
+            return False
+        if not isinstance(ctx,SystemVerilogParser.Parameter_port_listContext):
+            return self.is_parents_parameter_port_list(ctx.parentCtx)
+        else:
+            return True
+
+    
     def is_parents_function_declaration(self,ctx):
         if ctx is None:
             return False
@@ -109,6 +270,13 @@ class RenameModuleVisitor(SystemVerilogParserVisitor):
         "This function is used to traverse the tree and change the name of the instance"
     
     def _traverse_children(self,ctx):
+        if self.is_parents_parameter_port_list(ctx):
+            try:
+                ctx.start.text = ""
+                ctx.stop.text = ""
+            except:
+                ctx.symbol.text = ""
+                pass
         if isinstance(ctx,TerminalNodeImpl):
             if ctx.symbol.text == "?":
                 ctx.symbol.text = "?"
@@ -167,7 +335,7 @@ class RenameModuleVisitor(SystemVerilogParserVisitor):
 
 
 class InstModulePortVisitor (SystemVerilogParserVisitor):
-    def __init__(self,cur_module_identifier):
+    def __init__(self,cur_module_identifier, cur_prefixs, cur_dict_of_parameters):
         self.inst_module_node = None
         self.is_first_instantiation_module = False
         self.list_of_ports_width = []
@@ -176,6 +344,8 @@ class InstModulePortVisitor (SystemVerilogParserVisitor):
         self.list_of_data_type = []
         self.list_of_ports_lhs = []
         self.cur_module_identifier = cur_module_identifier
+        self.cur_prefixs = cur_prefixs
+        self.cur_dict_of_parameters = cur_dict_of_parameters
         
     def _traverse_children_in_header(self,ctx):
         if isinstance(ctx, TerminalNodeImpl):
@@ -332,8 +502,22 @@ class InstModulePortVisitor (SystemVerilogParserVisitor):
                         else:
                             self.list_of_ports_width.append("")
                             self.list_of_data_type.append("")
-                    
-                       
+                            
+                if isinstance(child, SystemVerilogParser.Param_assignmentContext):
+                    if child.getChildCount() == 3:
+                        param_name = child.getChild(0).getText().replace(" ", "")
+                        param_value = child.getChild(2).getText().replace(" ", "")
+                        # Append param_name and param_value to cur_dict_of_parameters
+                        for i in range(0, len(self.cur_prefixs)):
+                            if self.cur_dict_of_parameters.get(self.cur_prefixs[i]) is None:
+                                self.cur_dict_of_parameters[self.cur_prefixs[i]] = {}
+                            if self.cur_dict_of_parameters[self.cur_prefixs[i]].get(
+                                param_name
+                            ) is None and param_name.startswith(self.cur_prefixs[i]):
+                                self.cur_dict_of_parameters[self.cur_prefixs[i]][
+                                    param_name
+                                ] = param_value
+                                
                 self._traverse_children_in_module_item(child)
     
     def visitModule_declaration(self, ctx:SystemVerilogParser.Module_declarationContext):
@@ -344,8 +528,8 @@ class InstModulePortVisitor (SystemVerilogParserVisitor):
             if list_of_port_declarations is None:
                 raise ValueError("No port declaration under module header")
             
-            for child in list_of_port_declarations.getChildren():
-                if isinstance(child,SystemVerilogParser.Port_directionContext):
+            if list_of_port_declarations.port_decl() != [] and \
+                list_of_port_declarations.port_decl()[0].ansi_port_declaration().port_direction() is not None:
                     return True
             return False
         
@@ -359,8 +543,7 @@ class InstModulePortVisitor (SystemVerilogParserVisitor):
                 self._traverse_children_in_header(self.inst_module_node) 
             else:
                 self._traverse_children_in_module_item(self.inst_module_node)
-                
-                   
+                                
 class InstBodyVisitor(SystemVerilogParserVisitor):
     def __init__(self):
         super().__init__()
@@ -465,15 +648,14 @@ class InstBodyVisitor2(SystemVerilogParserVisitor):
         self.firstTerminal = False
         
     def ExtractStartAndStop(self,ctx):
-        
         def is_port_direction_under_module_header(ctx):
             module_header = ctx.module_header()
             list_of_port_declarations = module_header.list_of_port_declarations()
             if list_of_port_declarations is None:
                 raise ValueError("No port declaration under module header")
             
-            for child in list_of_port_declarations.getChildren():
-                if isinstance(child,SystemVerilogParser.Port_directionContext):
+            if list_of_port_declarations.port_decl() != [] and \
+                list_of_port_declarations.port_decl()[0].ansi_port_declaration().port_direction() is not None:
                     return True
             return False
         
@@ -528,7 +710,10 @@ class IdentifierVisitor(SystemVerilogParserVisitor):
             self.tmp_design += self.design[ : self.start[0]]
             for i in range(0,len(self.cur_new_variable)):
                 if i == 0:
-                    self.tmp_design += self.cur_new_variable[i] + '\n'
+                    if not self.tmp_design[-3:].isspace():
+                        self.tmp_design += 4*" "+ self.cur_new_variable[i] + '\n'
+                    else:
+                        self.tmp_design += self.cur_new_variable[i] + '\n'
                 else:
                     self.tmp_design += 4*" "+self.cur_new_variable[i] + '\n'
             self.tmp_design += '\n' + 4*" "+ remove_leading_whitespace(self.insert_parts[0]) + '\n'
@@ -559,7 +744,7 @@ def pyflattenverilog(design: str, top_module: str):
     cur_name_of_module_instances = visitor.name_of_module_instances
     cur_prefixs = cur_name_of_module_instances
     cur_list_of_ports_rhs = visitor.list_of_ports_rhs
-    cur_list_of_parameters = visitor.dict_of_parameters
+    cur_dict_of_parameters = visitor.dict_of_parameters
     dict_of_lhs_to_rhs = visitor.dict_of_lhs_to_rhs
     
     
@@ -572,14 +757,26 @@ def pyflattenverilog(design: str, top_module: str):
         )
         
     # Step 3. 改名及替换实例化部分
-    visitor = InstModuleVisitor(cur_module_identifier=cur_module_identifier)
+    visitor = InstModuleVisitor(cur_module_identifier=cur_module_identifier, cur_dict_of_parameters=cur_dict_of_parameters, \
+        cur_prefixs=cur_prefixs, top_module=top_module)
     visitor.visit(tree)
     inst_module_design = design[visitor.start : visitor.stop + 1]
-    
+      
     # Step 3.1. 替换模块变量
     inst_module_design_trees = []
     inst_module_nodes = []
-    no_port_parameter = False
+    if cur_dict_of_parameters != {}:
+        visitor.visit(tree)
+        # This can be optimized
+        design = (
+            design[: visitor.parameter_start]
+            + visitor.ports_param_str
+            + design[visitor.parameter_stop+1:]
+        )
+        tree = parse_design_to_tree(design)
+        visitor = TopModuleNodeFinder(top_module)
+        visitor.visit(tree)
+        top_node_tree = visitor.top_module_node
     for k in range(0,len(cur_prefixs)):
         tmp_inst_module_design = parse_design_to_tree(inst_module_design)
         visitor = RenameModuleVisitor(k,cur_prefixs,cur_module_identifier)
@@ -597,7 +794,7 @@ def pyflattenverilog(design: str, top_module: str):
     cur_dict_of_ports = {}
 
     for i in range(0, len(inst_module_design_trees)):
-        visitor = InstModulePortVisitor(cur_module_identifier)
+        visitor = InstModulePortVisitor(cur_module_identifier, cur_prefixs, cur_dict_of_parameters)
         visitor.visit(inst_module_design_trees[i])
         cur_list_of_ports_lhs = cur_list_of_ports_lhs + visitor.list_of_ports_lhs
         cur_list_of_ports_lhs_width = (
@@ -624,73 +821,88 @@ def pyflattenverilog(design: str, top_module: str):
     for k in range(0,len(cur_prefixs)):
         len_instance_port = int(len(cur_list_of_ports_rhs)/len(cur_prefixs))
         ports_lhs_width = copy.deepcopy(cur_list_of_ports_lhs_width)
-        
-        for i in range(0,len_instance_port):
-            if cur_list_of_data_type[k * len_instance_port + i]!= "":
-                cur_new_variable.append(
-                    cur_list_of_data_type[k * len_instance_port + i]
-                    + ports_lhs_width[k * len_instance_port + i]
-                    + " "
-                    + cur_prefixs[k]
-                    + "_"
-                    + cur_list_of_ports_lhs[k * len_instance_port +i]
-                    +";"
-                )
-            elif cur_list_of_ports_type[k * len_instance_port + i] == "reg":
-                if True:
+        try:
+            for i in range(0,len_instance_port):
+                if cur_list_of_data_type[k * len_instance_port + i]!= "":
                     cur_new_variable.append(
-                        "reg"
-                        + ports_lhs_width[k * len_instance_port +i]
+                        cur_list_of_data_type[k * len_instance_port + i]
+                        + ports_lhs_width[k * len_instance_port + i]
                         + " "
+                        + cur_prefixs[k]
+                        + "_"
+                        + cur_list_of_ports_lhs[k * len_instance_port +i]
+                        +";"
+                    )
+                elif cur_list_of_ports_type[k * len_instance_port + i] == "reg":
+                    if True:
+                        cur_new_variable.append(
+                            "reg"
+                            + ports_lhs_width[k * len_instance_port +i]
+                            + " "
+                            + cur_prefixs[k]
+                            + "_"
+                            + cur_list_of_ports_lhs[k * len_instance_port + i]
+                            + ";"
+                        )
+                else:
+                    cur_new_variable.append(
+                        "wire"
+                        + ports_lhs_width[k *len_instance_port +i]
+                        + " "
+                        +cur_prefixs[k]
+                        + "_"
+                        + cur_list_of_ports_lhs[k * len_instance_port +i]
+                        + ";"
+                    )
+                if cur_list_of_ports_direction[k * len_instance_port + i] == "input":
+                    rhs = dict_of_lhs_to_rhs[cur_prefixs[k]].get(
+                        cur_list_of_ports_lhs[k * len_instance_port + i]
+                    )
+                    if rhs == "":
+                        continue
+                    if rhs is None:
+                        rhs = cur_list_of_ports_rhs[k* len_instance_port +i]
+                    cur_new_assign.append(
+                        "assign "
+                        + cur_prefixs[k]
+                        + "_" 
+                        + cur_list_of_ports_lhs[k * len_instance_port +i]
+                        + " = "
+                        + rhs
+                        + ";"
+                    )
+                else:
+                    rhs = dict_of_lhs_to_rhs[cur_prefixs[k]].get(
+                        cur_list_of_ports_lhs[k * len_instance_port + i]
+                    )
+                    if rhs == "":
+                        continue
+                    if rhs is None:
+                        rhs = cur_list_of_ports_rhs[k * len_instance_port + i]
+                    cur_new_assign.append(
+                        "assign "
+                        + rhs
+                        + " = "
                         + cur_prefixs[k]
                         + "_"
                         + cur_list_of_ports_lhs[k * len_instance_port + i]
                         + ";"
                     )
-            else:
-                cur_new_variable.append(
-                    "wire"
-                    + ports_lhs_width[k *len_instance_port +i]
-                    + " "
-                    +cur_prefixs[k]
-                    + "_"
-                    + cur_list_of_ports_lhs[k * len_instance_port +i]
-                    + ";"
-                )
-            if cur_list_of_ports_direction[k * len_instance_port + i] == "input":
-                rhs = dict_of_lhs_to_rhs[cur_prefixs[k]].get(
-                    cur_list_of_ports_lhs[k * len_instance_port + i]
-                )
-                if rhs == "":
-                    continue
-                if rhs is None:
-                    rhs = cur_list_of_ports_rhs[k* len_instance_port +i]
-                cur_new_assign.append(
-                    "assign "
-                    + cur_prefixs[k]
-                    + "_" 
-                    + cur_list_of_ports_lhs[k * len_instance_port +i]
-                    + " = "
-                    + rhs
-                    + ";"
-                )
-            else:
-                rhs = dict_of_lhs_to_rhs[cur_prefixs[k]].get(
-                    cur_list_of_ports_lhs[k * len_instance_port + i]
-                )
-                if rhs == "":
-                    continue
-                if rhs is None:
-                    rhs = cur_list_of_ports_rhs[k * len_instance_port + i]
-                cur_new_assign.append(
-                    "assign "
-                    + rhs
-                    + " = "
-                    + cur_prefixs[k]
-                    + "_"
-                    + cur_list_of_ports_lhs[k * len_instance_port + i]
-                    + ";"
-                )
+        except Exception as e:
+            print(e)
+            # print all variable in the loop above
+            print("cur_list_of_ports_rhs: ", cur_list_of_ports_rhs)
+            print("cur_list_of_ports_lhs: ", cur_list_of_ports_lhs)
+            print("cur_list_of_ports_lhs_width: ", cur_list_of_ports_lhs_width)
+            print("cur_list_of_ports_width: ", cur_list_of_ports_width)
+            print("cur_list_of_ports_direction: ", cur_list_of_ports_direction)
+            print("cur_list_of_ports_type: ", cur_list_of_ports_type)
+            print("cur_list_of_data_type: ", cur_list_of_data_type)
+            print("cur_dict_of_ports: ", cur_dict_of_ports)
+            print("cur_new_variable: ", cur_new_variable)
+            print("cur_new_assign: ", cur_new_assign)
+            print(f"index {i} & {k}: ")
+            exit(0)
     
     inst_module_designs = []
     for k in range(0,len(cur_prefixs)):

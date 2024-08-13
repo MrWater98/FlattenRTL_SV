@@ -1,11 +1,11 @@
-module adder_2bit (
+module adder_2bit ( // hello
     input [1:0] a,
     input [1:0] b,
     output [2:0] sum
 );
     assign sum = a + b;
 endmodule
-module adder_4bit (
+module adder_4bit ( // hello
     input [3:0] a,
     input [3:0] b,
     output [4:0] sum
@@ -21,7 +21,7 @@ module adder_4bit (
     wire[2:0] adder_upper_sum;
 
     assign  adder_lower_sum = adder_lower_a + adder_lower_b ;
-    assign  adder_upper_sum = adder_upper_a + adder_upper_b ;
+    assign  adder_lower_sum = adder_lower_a + adder_lower_b ;
     assign adder_lower_a = a[1:0];
     assign adder_lower_b = b[1:0];
     assign sum_lower = adder_lower_sum;
