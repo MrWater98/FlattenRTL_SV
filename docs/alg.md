@@ -1,4 +1,4 @@
-# This document shows the algorithm of flattening a verilog design.
+# Algorithm of flattening a verilog design.
 
 ## Step 1: Find the Top-Level Module Node
 
@@ -142,7 +142,8 @@ Now: assign adder_upper_sum = adder_upper_a + adder_upper_b;
 
 The modified code is parsed into a tree and saved to inst_module_design_trees, inst_module_nodes
 
-The code corresponding to adder_lower is:```verilog
+The code corresponding to adder_lower is:
+```verilog
 module adder_2bit (
     input [1:0] a,
     input [1:0] b,
@@ -154,7 +155,9 @@ endmodule
 
 ### 3.2 Further Collect Information
 
-The core of processing the instantiated module interface is to declare new wires to receive interface information. To declare new wires, we need information including `bit width`, `wire name`, `wire direction`, and `interface type`. The original text is:```verilog
+The core of processing the instantiated module interface is to declare new wires to receive interface information. To declare new wires, we need information including `bit width`, `wire name`, `wire direction`, and `interface type`. The original text is:
+
+```verilog
     adder_2bit adder_lower (
         .a(a[1:0]), // 00
         .b(b[1:0]), // 01
@@ -162,45 +165,58 @@ The core of processing the instantiated module interface is to declare new wires
     );
 ```
 
-The corresponding interface a after modification is:```verilog
-wire [1:0] adder_lower_a;
-assign adder_lower_a = a[1:0];```[1:0] is the bit width, adder_lower_a replaces the input interface a of the instantiated adder_2bit, so in the assign below, adder_lower_a is the receiving end.
+The corresponding interface a after modification is:
 
-Based on the content needed above, we collected the following variables:```verilog
-    cur_list_of_ports_lhs = ['a', 'b', 'sum', 'a', 'b', 'sum] 
-    cur_list_of_ports_lhs_width = ['[1:0]', '[1:0]', '[2:0]', '[1:0]', '[1:0]', '[2:0]']
-    cur_list_of_ports_width = ['[1:0]', '[1:0]', '[2:0]', '[1:0]', '[1:0]', '[2:0]']
-    cur_list_of_ports_direction = ['input', 'input', 'output', 'input', 'input', 'output']
-    cur_list_of_ports_type = ['wire', 'wire', 'wire', 'wire', 'wire', 'wire']
-    cur_list_of_data_type = ['', '', '', '', '', '']
-    cur_dict_of_ports = {
-    'a': {'width': '[1:0]', 'direction': 'input', 'type': 'wire'}, 
-    'b': {'width': '[1:0]', 'direction': 'input', 'type': 'wire'}, 
-    'sum': {'width': '[2:0]', 'direction': 'output', 'type': 'wire'}
-    }```
+```verilog
+wire [1:0] adder_lower_a;
+assign adder_lower_a = a[1:0];
+```
+`[1:0]` is the bit width, `adder_lower_a` replaces the input interface a of the instantiated `adder_2bit`, so in the assign below, `adder_lower_a` is the receiving end.
+
+Based on the content needed above, we collected the following variables:
+
+```verilog
+cur_list_of_ports_lhs = ['a', 'b', 'sum', 'a', 'b', 'sum] 
+cur_list_of_ports_lhs_width = ['[1:0]', '[1:0]', '[2:0]', '[1:0]', '[1:0]', '[2:0]']
+cur_list_of_ports_width = ['[1:0]', '[1:0]', '[2:0]', '[1:0]', '[1:0]', '[2:0]']
+cur_list_of_ports_direction = ['input', 'input', 'output', 'input', 'input', 'output']
+cur_list_of_ports_type = ['wire', 'wire', 'wire', 'wire', 'wire', 'wire']
+cur_list_of_data_type = ['', '', '', '', '', '']
+cur_dict_of_ports = {
+'a': {'width': '[1:0]', 'direction': 'input', 'type': 'wire'}, 
+'b': {'width': '[1:0]', 'direction': 'input', 'type': 'wire'}, 
+'sum': {'width': '[2:0]', 'direction': 'output', 'type': 'wire'}
+```
 
 ## 3.3 Combine Materials to be Replaced
 
-We combine the information collected above into new variables and assignments, and save them in the following two variables. Later, we will fill these assignment statements into the original text.```verilog   cur_new_variable = [
-       'wire[1:0] adder_lower_a;', 
-       'wire[1:0] adder_lower_b;', 
-       'wire[2:0] adder_lower_sum;', 
-       'wire[1:0] adder_upper_a;', 
-       'wire[1:0] adder_upper_b;', 
-       'wire[2:0] adder_upper_sum;'
-       ]   cur_new_assign = [
-        'assign adder_lower_a = a[1:0];',
-        'assign adder_lower_b = b[1:0];', 
-        'assign sum_lower = adder_lower_sum;', 
-        'assign adder_upper_a = a[3:2];', 
-        'assign adder_upper_b = b[3:2];', 
-        'assign sum_upper = adder_upper_sum;'
-        ]
+We combine the information collected above into new variables and assignments, and save them in the following two variables. Later, we will fill these assignment statements into the original text.
+
+```python   
+cur_new_variable = [
+    'wire[1:0] adder_lower_a;', 
+    'wire[1:0] adder_lower_b;', 
+    'wire[2:0] adder_lower_sum;', 
+    'wire[1:0] adder_upper_a;', 
+    'wire[1:0] adder_upper_b;', 
+    'wire[2:0] adder_upper_sum;'
+]   
+
+cur_new_assign = [
+    'assign adder_lower_a = a[1:0];',
+    'assign adder_lower_b = b[1:0];', 
+    'assign sum_lower = adder_lower_sum;', 
+    'assign adder_upper_a = a[3:2];', 
+    'assign adder_upper_b = b[3:2];', 
+    'assign sum_upper = adder_upper_sum;'
+]
 ```
 
 ## 3.4 Concatenate the Obtained Materials to Get the Final Data
 
-The original text before processing is as follows:```verilog
+The original text before processing is as follows:
+
+```verilog
 module adder_2bit (
     input [1:0] a, 
     input [1:0] b,
@@ -217,7 +233,8 @@ module adder_4bit (
     wire [2:0] sum_lower;
     wire [2:0] sum_upper;
 
-    ~~adder_2bit adder_lower (
+    /* -- Part of Delete
+    adder_2bit adder_lower (
         .a(a[1:0]), 
         .b(b[1:0]), 
         .sum(sum_lower) 
@@ -227,33 +244,35 @@ module adder_4bit (
         .a(a[3:2]), 
         .b(b[3:2]), 
         .sum(sum_upper)  
-    )~~
+    )
+    -- Part of Delete */
 
-#Paste the declared new wires:
-    **wire[1:0] adder_lower_a;
+    //Paste the declared new wires:
+    wire[1:0] adder_lower_a;
     wire[1:0] adder_lower_b;
     wire[2:0] adder_lower_sum;
     wire[1:0] adder_upper_a;
     wire[1:0] adder_upper_b;
     wire[2:0] adder_upper_sum;**   
-#Paste the processed inst_module_design:
-    **assign adder_lower_sum = adder_lower_a + adder_lower_b;
-    assign adder_lower_sum = adder_lower_a + adder_lower_b;**
+    //Paste the processed inst_module_design:
+    assign adder_lower_sum = adder_lower_a + adder_lower_b;
+    assign adder_lower_sum = adder_lower_a + adder_lower_b;
     
-#Paste the assigned new wires:    
-    **assign adder_lower_a = a[1:0];
+    // Paste the assigned new wires:    
+    assign adder_lower_a = a[1:0];
     assign adder_lower_b = b[1:0];
     assign sum_lower = adder_lower_sum;
     assign adder_upper_a = a[3:2];
     assign adder_upper_b = b[3:2];
-    assign sum_upper = adder_upper_sum;**
+    assign sum_upper = adder_upper_sum;
     
     
     assign sum = {sum_upper[2:0], sum_lower[1:0]}; 
 endmodule
 ```
 
-The final processing effect is as follows:```verilog
+The final processing effect is as follows:
+```verilog
 module adder_2bit (
     input [1:0] a,
     input [1:0] b,
@@ -276,19 +295,14 @@ module adder_4bit (
     wire[1:0] adder_upper_b;
     wire[2:0] adder_upper_sum;
 
-     
-  assign  adder_lower_sum = adder_lower_a + adder_lower_b ;
-    
-
-     
-  assign  adder_upper_sum = adder_upper_a + adder_upper_b ;
+    assign adder_lower_sum = adder_lower_a + adder_lower_b ;
+    assign adder_upper_sum = adder_upper_a + adder_upper_b ;
     assign adder_lower_a = a[1:0];
     assign adder_lower_b = b[1:0];
     assign sum_lower = adder_lower_sum;
     assign adder_upper_a = a[3:2];
     assign adder_upper_b = b[3:2];
     assign sum_upper = adder_upper_sum;
-    
-
     assign sum = {sum_upper[2:0], sum_lower[1:0]};
-endmodule``````
+endmodule
+```
