@@ -48,7 +48,15 @@
             "args": ["tests/regression/rocket","-f","filelist.f","-t","RocketTile","-o","f_rocket.v","-g"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
-            ]
+        },
+        {
+            "name": "Debug rocket sv",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "args": ["tests/regression/rocket_sv","-f","filelist.f","-t","RocketTile","-o","f_rocket.v","-g"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         },
         {
             "name": "adder_2bit",

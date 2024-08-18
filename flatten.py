@@ -334,7 +334,7 @@ class RenameModuleVisitor(SystemVerilogParserVisitor):
             self._traverse_children(self.inst_module_node)    
 
 
-class InstModulePortVisitor (SystemVerilogParserVisitor):
+class InstModulePortVisitor(SystemVerilogParserVisitor):
     def __init__(self,cur_module_identifier, cur_prefixs, cur_dict_of_parameters):
         self.inst_module_node = None
         self.is_first_instantiation_module = False
@@ -430,6 +430,17 @@ class InstModulePortVisitor (SystemVerilogParserVisitor):
                     else:
                         self.list_of_ports_width.append("")
                         self.list_of_data_type.append("")
+                        
+                        
+                if isinstance(child, SystemVerilogParser.Port_declContext) \
+                    and child.ansi_port_declaration().port_direction() is None:
+                        self.list_of_ports_direction.append(self.list_of_ports_direction[-1])
+                        self.list_of_ports_lhs.append(
+                            child.ansi_port_declaration().port_identifier().getText()
+                        )
+                        self.list_of_ports_type.append(self.list_of_ports_type[-1])
+                        self.list_of_ports_width.append(self.list_of_ports_width[-1])
+                        self.list_of_data_type.append(self.list_of_data_type[-1])
                         
                 self._traverse_children_in_header(child)    
     
