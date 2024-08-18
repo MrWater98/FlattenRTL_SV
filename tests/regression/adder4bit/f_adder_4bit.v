@@ -6,22 +6,17 @@ module adder_4bit ( // hello
     wire [2:0] sum_lower;
     wire [2:0] sum_upper;
 
-    wire[1:0] adder_lower_a;
-    wire[1:0] adder_lower_b;
-    wire[2:0] adder_lower_sum;
-    wire[1:0] adder_upper_a;
-    wire[1:0] adder_upper_b;
-    wire[2:0] adder_upper_sum;
+    adder_2bit adder_lower (
+        .a(a[1:0]),
+        .b(b[1:0]),
+        .sum(sum_lower)
+    );
 
-    assign  adder_lower_sum = adder_lower_a + adder_lower_b ;
-    assign  adder_lower_sum = adder_lower_a + adder_lower_b ;
-    assign adder_lower_a = a[1:0];
-    assign adder_lower_b = b[1:0];
-    assign sum_lower = adder_lower_sum;
-    assign adder_upper_a = a[3:2];
-    assign adder_upper_b = b[3:2];
-    assign sum_upper = adder_upper_sum;
-    
+    adder_2bit adder_upper (
+        .a(a[3:2]),
+        .b(b[3:2]),
+        .sum(sum_upper)
+    );
 
     assign sum = {sum_upper[2:0], sum_lower[1:0]};
 endmodule

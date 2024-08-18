@@ -16,7 +16,7 @@ class TopModuleNodeFinder(SystemVerilogParserVisitor):
             self.top_module_node = ctx
             
 class MyModuleInstantiationVisitor(SystemVerilogParserVisitor):
-    def __init__(self):
+    def __init__(self, exclude_module):
         self.is_first_instantiation_module = False
         self.module_identifier = ""
         self.module_param = []
@@ -25,13 +25,17 @@ class MyModuleInstantiationVisitor(SystemVerilogParserVisitor):
         self.dict_of_lhs_to_rhs = {}
         self.list_of_ports_rhs_width = []
         self.dict_of_parameters = {}
+        
+        self.exclude_module = exclude_module
 
     def visitModule_program_interface_instantiation(
         self, ctx : SystemVerilogParser.Module_program_interface_instantiationContext
     ):
         if (
-            self.is_first_instantiation_module == False
+            ctx.instance_identifier().getText() not in self.exclude_module 
+            and self.is_first_instantiation_module == False
             or self.module_identifier == ctx.instance_identifier().getText()
+            
         ):
             self.is_first_instantiation_module = True
             self.first_instantiation = ctx
@@ -740,7 +744,7 @@ class IdentifierVisitor(SystemVerilogParserVisitor):
                    
 
 
-def pyflattenverilog(design: str, top_module: str):
+def pyflattenverilog(design: str, top_module: str, exlude_module : set):
     tree = parse_design_to_tree(design)
     
     # Step 1. 找到顶层模块节点
@@ -749,7 +753,7 @@ def pyflattenverilog(design: str, top_module: str):
     top_node_tree = top_finder.top_module_node 
     
     # Step 2. 收集Top节点实例化的信息
-    visitor = MyModuleInstantiationVisitor()
+    visitor = MyModuleInstantiationVisitor(exlude_module)
     visitor.visit(top_node_tree)
     cur_module_identifier =visitor.module_identifier
     cur_name_of_module_instances = visitor.name_of_module_instances

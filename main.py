@@ -14,6 +14,8 @@ def argparser():   #定义一个叫argparser的函数
                         help='The name of the top module.')  
     parser.add_argument('-o', '--output', type=str, default='flatten.v',   #添加一个参数output，类型为字符串，默认值为flatten.v
                         help='The output file containint the flattened module. Default = flatten.v')
+    parser.add_argument('-ex','--exclude',type=str, default='',
+                        help='The filelist of excluded files.' )
     parser.add_argument('-g', '--debug', default=False, action='store_true',   #添加一个参数debug，类型为布尔值，默认值为False
                         help='Enable debug mode.')
     return parser   #返回parser
@@ -40,6 +42,12 @@ def main():  #定义一个叫main的函数
         with open(pathlib.Path(directory, item.strip()), "r") as f:    #打开文件
             content = f.read()
             design += content + '\n'
+            
+    exclude_module = set()
+    if args.exclude != '':
+        exclude_arr = args.exclude.split(',')
+        for item in exclude_arr:
+            exclude_module.add(item.strip())
     
     # all intermediate flattened results will be stored in directory/tmp 
     if args.debug:    #如果args.debug为真
@@ -64,7 +72,7 @@ def main():  #定义一个叫main的函数
                     f.write(tmp_flatten_design)    #写入文件内容
                 tmp_idx += 1   #tmp_idx加1
             done, tmp_flatten_design = flatten.pyflattenverilog(    #赋值给done和tmp_flatten_design一个flatten.pyflattenverilog对象
-                tmp_flatten_design, args.top    
+                tmp_flatten_design, args.top, exclude_module    
             )
     
         # write to output file
