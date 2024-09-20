@@ -3,7 +3,7 @@ import re, copy
 from antlr4.tree.Tree import TerminalNodeImpl
 from antlr4_systemverilog.systemverilog import SystemVerilogParser, SystemVerilogParserVisitor
 
-from design_parser import parse_design_to_tree
+from design_parser import parse_design_to_tree, extract_module, replace_module
 
 class TopModuleNodeFinder(SystemVerilogParserVisitor):
     def __init__(self, top_module):
@@ -741,11 +741,14 @@ class IdentifierVisitor(SystemVerilogParserVisitor):
                 self.tmp_design += " "*4+assign +'\n'
             self.tmp_design += " "*4+self.design[self.stop[-1] + 1 :] + '\n'
                                           
-                   
+         
 
 
 def pyflattenverilog(design: str, top_module: str, exlude_module : set):
-    tree = parse_design_to_tree(design)
+    
+    top_design_str = extract_module(design, top_module)
+    
+    tree = parse_design_to_tree(top_design_str)
     
     # Step 1. 找到顶层模块节点
     top_finder= TopModuleNodeFinder(top_module)
@@ -764,7 +767,7 @@ def pyflattenverilog(design: str, top_module: str, exlude_module : set):
     
     
     if cur_module_identifier == "":
-        return True, design[top_node_tree.start.start : top_node_tree.stop.stop + 1]
+        return True, top_design_str
     else:
         print(
             "[Processing] MODULE: %s\tNAME:%s"
@@ -772,10 +775,13 @@ def pyflattenverilog(design: str, top_module: str, exlude_module : set):
         )
         
     # Step 3. 改名及替换实例化部分
+    instance_design_str = extract_module(design,cur_module_identifier)
+    top_instance_str = top_design_str + '\n' + instance_design_str
+    tree = parse_design_to_tree(top_instance_str)
     visitor = InstModuleVisitor(cur_module_identifier=cur_module_identifier, cur_dict_of_parameters=cur_dict_of_parameters, \
         cur_prefixs=cur_prefixs, top_module=top_module)
     visitor.visit(tree)
-    inst_module_design = design[visitor.start : visitor.stop + 1]
+    inst_module_design = top_instance_str[visitor.start : visitor.stop + 1]
       
     # Step 3.1. 替换模块变量
     inst_module_design_trees = []
@@ -783,12 +789,12 @@ def pyflattenverilog(design: str, top_module: str, exlude_module : set):
     if cur_dict_of_parameters != {}:
         visitor.visit(tree)
         # This can be optimized
-        design = (
-            design[: visitor.parameter_start]
+        instance_design_str = (
+            instance_design_str[: visitor.parameter_start]
             + visitor.ports_param_str
-            + design[visitor.parameter_stop+1:]
+            + instance_design_str[visitor.parameter_stop+1:]
         )
-        tree = parse_design_to_tree(design)
+        tree = parse_design_to_tree(instance_design_str)
         visitor = TopModuleNodeFinder(top_module)
         visitor.visit(tree)
         top_node_tree = visitor.top_module_node
@@ -933,8 +939,10 @@ def pyflattenverilog(design: str, top_module: str, exlude_module : set):
         visitor.visit(inst_module_nodes[k])
         insert_parts.append(inst_module_designs[k][visitor.start : visitor.stop])
         
-    visitor = IdentifierVisitor(cur_name_of_module_instance=cur_name_of_module_instances,design=design,
+    visitor = IdentifierVisitor(cur_name_of_module_instance=cur_name_of_module_instances,design=top_instance_str,
                                 top_module = top_module, cur_new_variable=cur_new_variable,insert_parts = insert_parts,cur_new_assign=cur_new_assign)
     visitor.visit(top_node_tree)
 
-    return False, visitor.tmp_design
+    flatten_design = replace_module(design, top_module ,visitor.tmp_design)
+
+    return False, flatten_design

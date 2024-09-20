@@ -9,7 +9,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
-            "args": ["tests/regression/adder4bit","-f","filelist.f","-ex","adder_2bit","-t","adder_4bit","-o","f_adder_4bit.v","-g"],
+            "args": ["tests/regression/adder4bit","-f","filelist.f","-t","adder_4bit","-o","f_adder_4bit.v","-g"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
@@ -27,7 +27,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
-            "args": ["tests/regression/_adder_param","-f","filelist.f","-t","TopModule","-o","f_adder.v","-g"],
+            "args": ["tests/regression/_adder_param","-f","filelist.f","-ex","Adder","-t","TopModule","-o","f_adder.v","-g"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
